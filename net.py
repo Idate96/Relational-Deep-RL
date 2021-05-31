@@ -177,7 +177,7 @@ class RelationalNet(nn.Module):
     - 2 to 4 attention blocks with embedding size 64
     - 3 to 6 residual blocks, each block with a conv layer with 26 channels and 3x3 kernels
   """
-  def __init__(self, mlp_depth=4, depth_transformer=2, heads=2, baseline=False, recurrent_transformer=False):
+  def __init__(self, input_size=14, mlp_depth=4, depth_transformer=2, heads=2, baseline=False, recurrent_transformer=False):
       super().__init__()
       # convolulotional layers 
       # padding is used such that the output of the second layer is still 14x14
@@ -187,11 +187,13 @@ class RelationalNet(nn.Module):
         nn.Conv2d(12, 24, kernel_size=(2, 2), stride=1),
         nn.GELU()
       )
-    
+      # with padding (n, n, c) -> (n, n, k)
+      conv_out_features = input_size
+
       # positional encodings of size (2, 14, 14) that contain the x and y pos of each tile 
       # linearly spaces between -1 and 1
-      x = torch.linspace(-1, 1, steps=14)
-      y = torch.linspace(-1, 1, steps=14)
+      x = torch.linspace(-1, 1, steps=conv_out_features)
+      y = torch.linspace(-1, 1, steps=conv_out_features)
       xx, yy = torch.meshgrid(x, y)
       xx = xx.flatten()
       yy = yy.flatten()
@@ -208,7 +210,7 @@ class RelationalNet(nn.Module):
       else:
         self.transformer = Transformer(dim=26, depth=1, heads=heads, dim_head=64, mlp_dim=256)
       
-      self.transformer_project = nn.Linear(14 * 14 * heads, 14 * 14)
+      self.transformer_project = nn.Linear(conv_out_features**2 * heads, conv_out_features**2)
       self.mlp = MLP(input_dim=26, layer_dim=256, depth=mlp_depth)
       # logits for policy and value 
       self.baseline = baseline
@@ -248,9 +250,10 @@ class RelationalNet(nn.Module):
 
 
 if __name__ == '__main__':
-  input = np.zeros((2, 3, 14, 14))
-  net = RelationalNet()
-  output = net(torch.from_numpy(input).float())  
+  device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+  input = np.zeros((2, 3, 6, 6))
+  net = RelationalNet(input_size=6, recurrent_transformer=True).to(device)
+  output = net(torch.from_numpy(input).float().to(device))  
   print(output.shape)
   # pos_enc_ = pos_enc(output)
   # print(pos_enc_[0, 0, 0])

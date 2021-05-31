@@ -1,11 +1,11 @@
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 from gym_boxworld.envs.boxworld_env import BoxworldEnv, RandomBoxworldEnv
 from typing import Callable
 import gym
 
 
-def make_boxworld(seed: int, log_dir: str, random: bool = False) -> Callable[[], gym.Env]:
+def make_boxworld(n:int, max_steps:int, goal_length:int, step_cost:int, num_distractors:int, seed:int, log_dir: str, monitor=True, random: bool = False) -> Callable[[], gym.Env]:
     """Create custom minigrid environment
 
     Args:
@@ -17,18 +17,26 @@ def make_boxworld(seed: int, log_dir: str, random: bool = False) -> Callable[[],
 
     def init():
         if random:
-          env = RandomBoxworldEnv()
+          env = RandomBoxworldEnv(n=n, max_steps=max_steps, step_cost = step_cost, goal_length=goal_length, num_distractor=num_distractors)
         else:
-          env = BoxworldEnv()
+          env = BoxworldEnv(n=n, max_steps=max_steps, step_cost = step_cost, goal_length=goal_length, num_distractor=num_distractors)
         env.seed(seed)
-        env = Monitor(env, log_dir)
+        # when using parallel environments only allow 1 env to log 
+        if monitor:
+          env = Monitor(env, log_dir)
+        # env = DummyVecEnv(env)
         return env
 
     return init
 
 
-def parallel_boxworlds(log_dir, num_envs):
+def parallel_boxworlds(n:int, max_steps, goal_length:int, num_distractors:int, step_cost:float, log_dir, num_envs):
     env = SubprocVecEnv(
-        [make_boxworld(i, log_dir, random=True) for i in range(num_envs)]
+        [make_boxworld(n=n, max_steps=max_steps, goal_length=goal_length, step_cost=step_cost, num_distractors=num_distractors, seed=i, monitor=i==0, log_dir=log_dir, random=False) for i in range(num_envs)]
     )
     return env
+
+
+def conv2d_size_out(size, kernel_size=2, stride=1):
+    return (size - (kernel_size - 1) - 1) // stride + 1
+    
