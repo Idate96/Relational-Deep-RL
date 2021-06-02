@@ -36,54 +36,16 @@ from net import RelationalNet
 import torch as th
 import torch.nn as nn
 import matplotlib.pyplot as plt
+from extractors import RelationalNet, DeeperExtractor, SimpleExtractor
 # checkpoint (model and replay buffer): check
 # logging (personalized): -
 # on custom environment
 # tensorflow integration: check
 
 
-class RelationalExtractor(BaseFeaturesExtractor):
-    def __init__(self, observation_space: gym.Space):
-        super().__init__(observation_space, features_dim=256)
-        # the network does not contain the final projection
-        # with mlp_depth = 4, set net_arch = []
-        # else put the mlp layers into a custom network
-        self.net = RelationalNet(
-            input_size=8,
-            mlp_depth=4,
-            depth_transformer=2,
-            heads=2,
-            baseline=False,
-            recurrent_transformer=True,
-        )
-
-    def forward(self, observations: th.Tensor) -> th.Tensor:
-        return self.net(observations)
-
-
-class SimpleExtractor(BaseFeaturesExtractor):
-    def __init__(self, observation_space: gym.Space):
-        super().__init__(observation_space, features_dim=256)
-        # the network does not contain the final projection
-        # with mlp_depth = 4, set net_arch = []
-        # else put the mlp layers into a custom network
-        self.conv = nn.Sequential(
-            nn.Conv2d(3, 12, kernel_size=(2, 2), stride=1),
-            nn.GELU(),
-            nn.Conv2d(12, 24, kernel_size=(2, 2), stride=1),
-            nn.GELU(),
-            nn.Flatten()
-        )
-        # for some reason the standard is 256 
-        self.linear = nn.Sequential(nn.Linear(864, 256), nn.ReLU())
-
-    def forward(self, observations: th.Tensor) -> th.Tensor:
-        x = self.conv(observations)
-        return self.linear(x)
-
 
 if __name__ == "__main__":
-    log_dir = "./logs/box_world/"
+    log_dir = "./logs/box_world/ppo"
     os.makedirs(log_dir, exist_ok=True)
 
     # tf.debugging.experimental.enable_dump_debug_info("./logs/", tensor_debug_mode="FULL_HEALTH", circular_buffer_size=-1)
@@ -91,17 +53,17 @@ if __name__ == "__main__":
     # and the test environment (for evaluation)
     env_id = "Boxworld"
     env = parallel_boxworlds(
-        6, max_steps=256, goal_length=2, step_cost=-0.05, num_distractors=0, log_dir=log_dir, num_envs=12
+        12, max_steps=256 * 5, goal_length=3, step_cost=-0.05, num_distractors=0, log_dir=log_dir, num_envs=12
     )
 
     eval_env = VecTransposeImage(
         DummyVecEnv(
             [
                 lambda: make_boxworld( 
-                    6,
-                    max_steps=256,
+                    12,
+                    max_steps=256 * 5,
                     step_cost = -0.05,
-                    goal_length=2,
+                    goal_length=3,
                     num_distractors=0,
                     log_dir=log_dir,
                     seed=24,
@@ -115,13 +77,17 @@ if __name__ == "__main__":
 
     policy_kwargs = dict(
         features_extractor_class=SimpleExtractor,
-        net_arch=[128, 128],
+        net_arch=[dict(pi=[256], vf=[256])]
     )
 
     model = PPO(
         ActorCriticPolicy,
         env,
-        gamma=0.997,
+        gamma=1,
+        batch_size=64,
+        n_steps=3 * 256, # with 12 environments these are 32 trajectories 
+        n_epochs=10,
+        ent_coef=0.001,
         policy_kwargs=policy_kwargs,
         verbose=1,
         create_eval_env=True,
@@ -129,7 +95,7 @@ if __name__ == "__main__":
     )
     # with steps 2058 * num_envs
 
-    checkpoint_callback = CheckpointCallback(save_freq=200000, save_path=log_dir, name_prefix="ac2_model")
+    checkpoint_callback = CheckpointCallback(save_freq=200000, save_path=log_dir, name_prefix="ppo_split_model_12")
 
     # Separate evaluation env
 
@@ -146,15 +112,15 @@ if __name__ == "__main__":
 
     # not saving
     video_recorder = VideoRecorderCallback(eval_env, render_freq=20000)
-    max_min_callback = TensorboardCallback(log_dir)
     callbacks = CallbackList(
-        [eval_callback, checkpoint_callback, video_recorder, max_min_callback]
+        [eval_callback, checkpoint_callback, video_recorder]
     )
 
     # Create the callback list
     # Evaluate the model every 1000 steps on 5 test episodes
     # and save the evaluation to the "logs/" folder
-    model.learn(10000000, callback=callbacks, tb_log_name="ppo_run")
+    # model.load('logs/box_world/ppo_split_model_4800000_steps', env=env)
+    model.learn(10000000, callback=callbacks, tb_log_name="ppo_run_split_12", reset_num_timesteps=False)
 
     # save the model
     model.save("ppo_boxworld_n_test")

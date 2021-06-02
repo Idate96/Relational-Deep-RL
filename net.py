@@ -9,9 +9,10 @@ from math import sqrt
 import torch
 from torch import nn, einsum
 import torch.nn.functional as F
-
+import gym
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
+from torch.nn.modules.activation import GELU
 
 
 
@@ -160,6 +161,33 @@ class PositionalEncodings(nn.Module):
   pass
 
 
+class Residual(nn.Module):
+    def __init__(self, fn):
+        super().__init__()
+        self.fn = fn
+
+    def forward(self, x, **kwargs):
+        return self.fn(x, **kwargs) + x
+
+class ResBlock(nn.Module):
+  def __init__(self, in_channels, out_channels, kernel=3, stride=1):
+    super().__init__()
+    
+    self.block = nn.Sequential(
+      nn.Conv2d(in_channels, out_channels, stride=stride, kernel_size=kernel, padding=1),
+      nn.BatchNorm2d(out_channels),
+      nn.GELU(),
+      nn.Conv2d(out_channels, out_channels, stride=stride, kernel_size=kernel, padding=1),
+      nn.BatchNorm2d(out_channels)
+    )
+
+  def forward(self, x):
+    out = self.block(x)
+    out += x
+    out = F.gelu(out)
+    return out 
+
+
 class RelationalNet(nn.Module):
   """Relational net used in the paper Relational Deep RL
 
@@ -177,8 +205,9 @@ class RelationalNet(nn.Module):
     - 2 to 4 attention blocks with embedding size 64
     - 3 to 6 residual blocks, each block with a conv layer with 26 channels and 3x3 kernels
   """
-  def __init__(self, input_size=14, mlp_depth=4, depth_transformer=2, heads=2, baseline=False, recurrent_transformer=False):
+  def __init__(self, observation_space, features_dim:int=256, mlp_depth=4, depth_transformer=2, heads=2, baseline=False, num_res_blocks=3, recurrent_transformer=False):
       super().__init__()
+      self.features_dim = features_dim
       # convolulotional layers 
       # padding is used such that the output of the second layer is still 14x14
       self.conv = nn.Sequential(
@@ -188,7 +217,8 @@ class RelationalNet(nn.Module):
         nn.GELU()
       )
       # with padding (n, n, c) -> (n, n, k)
-      conv_out_features = input_size
+      conv_out_features = observation_space.shape[1]
+      
 
       # positional encodings of size (2, 14, 14) that contain the x and y pos of each tile 
       # linearly spaces between -1 and 1
@@ -205,13 +235,25 @@ class RelationalNet(nn.Module):
       # attention layer
       self.recurrent_transformer = recurrent_transformer
       self.depth_transformer = depth_transformer
-      if recurrent_transformer: 
-        self.transformer = Transformer(dim=26, depth=depth_transformer, heads=heads, dim_head=64, mlp_dim=256)
+
+      self.transformer = None
+      self.residual_layers = nn.ModuleList([])
+      mlp_input_dim = 0
+      if baseline:
+        for _ in range(num_res_blocks):
+          self.residual_layers.append(ResBlock(in_channels=24, out_channels=24))
+          mlp_input_dim = 24
       else:
-        self.transformer = Transformer(dim=26, depth=1, heads=heads, dim_head=64, mlp_dim=256)
-      
-      self.transformer_project = nn.Linear(conv_out_features**2 * heads, conv_out_features**2)
-      self.mlp = MLP(input_dim=26, layer_dim=256, depth=mlp_depth)
+        if recurrent_transformer: 
+          self.transformer = Transformer(dim=26, depth=depth_transformer, heads=heads, dim_head=64, mlp_dim=256)
+        else:
+          self.transformer = Transformer(dim=26, depth=1, heads=heads, dim_head=64, mlp_dim=256)
+        
+        self.transformer_project = nn.Linear(conv_out_features**2 * heads, conv_out_features**2)
+        mlp_input_dim = 26
+
+      # input dimensions for mlo
+      self.mlp = MLP(input_dim=mlp_input_dim, layer_dim=256, depth=mlp_depth)
       # logits for policy and value 
       self.baseline = baseline
       # device
@@ -221,10 +263,10 @@ class RelationalNet(nn.Module):
     # initial feature extractors
     x = self.conv(x)
 
-    # add positional encodings
 
     if not self.baseline:
       # project to from (n, c, i, j) -> (n, i * j, c)
+          # add positional encodings
       x = rearrange(x, 'b c i j -> b (i j) c')  
       # repeat along the batch dim
       batch_size = x.size()[0]
@@ -237,12 +279,14 @@ class RelationalNet(nn.Module):
           x = self.transformer(x)
       else:
         x = self.transformer(x)
+      
+      x = rearrange(x, 'n i j -> n j i')
     else:
-      pass 
-    # out of the 14^2 features per filter (26) pick one
+        for res_layer in self.residual_layers:
+          x = res_layer(x)  # out of the 14^2 features per filter (26) pick one
+        x = rearrange(x, 'n c i j -> n c (i j)')
     # feels kind of an information bottlececk though 
-    x = torch.squeeze(F.max_pool1d(rearrange(x, 'n i j -> n j i'), kernel_size=x.shape[1]), dim=2)
-
+    x = torch.squeeze(F.max_pool1d(x, kernel_size=x.shape[2]), dim=2)
     # x = self.transformer_project(x)
     x = self.mlp(x)
     return x
@@ -251,8 +295,10 @@ class RelationalNet(nn.Module):
 
 if __name__ == '__main__':
   device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-  input = np.zeros((2, 3, 6, 6))
-  net = RelationalNet(input_size=6, recurrent_transformer=True).to(device)
+  input = np.zeros((2, 3, 14, 14))
+  observation_space = type('test', (), {})()
+  observation_space.shape = (3, 14, 14)
+  net = RelationalNet(observation_space, baseline=True).to(device)
   output = net(torch.from_numpy(input).float().to(device))  
   print(output.shape)
   # pos_enc_ = pos_enc(output)
