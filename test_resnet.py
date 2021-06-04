@@ -53,14 +53,14 @@ if __name__ == "__main__":
     # and the test environment (for evaluation)
     env_id = "Boxworld"
     env = parallel_boxworlds(
-        12, max_steps=256, goal_length=2, step_cost=-0.05, num_distractors=0, log_dir=log_dir, num_envs=12
+        6, max_steps=256, goal_length=2, step_cost=-0.05, num_distractors=0, log_dir=log_dir, num_envs=12
     )
 
     eval_env = VecTransposeImage(
         DummyVecEnv(
             [
                 lambda: make_boxworld( 
-                    12,
+                    6,
                     max_steps=256,
                     step_cost = -0.05,
                     goal_length=2,
