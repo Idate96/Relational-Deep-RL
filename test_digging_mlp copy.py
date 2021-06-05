@@ -46,26 +46,28 @@ import heightgrid  # register the environment
 
 
 if __name__ == "__main__":
-    log_dir = "./logs/heightgrid/ppo/16x16"
+    log_dir = "./logs/heightgrid/ppo/digging_5x5"
     os.makedirs(log_dir, exist_ok=True)
+    size = 5
+    num_digging_pts = 1
+    env_id = "HeightGrid-RandomTargetHeight-v0"
+    env = parallel_worlds(env_id, log_dir=log_dir, flat_obs=True, num_envs=16, size=size, num_digging_pts=num_digging_pts)
 
-    env_id = "HeightGrid-Empty-Random-16x16-v0"
-    env = parallel_worlds(env_id, log_dir=log_dir, flat_obs=True, num_envs=12)
-
-    eval_env = make_env(env_id, log_dir=log_dir, seed=24, flat_obs=True)()
+    eval_env = make_env(env_id, log_dir=log_dir, seed=24, flat_obs=True, size=size, num_digging_pts=num_digging_pts)()
     # figure, ax = eval_env.render()
     # plt.plot(figure)
 
-    policy_kwargs = dict(net_arch=[512, 256, dict(pi=[128], vf=[128])])
+    policy_kwargs = dict(net_arch=[128, dict(pi=[128], vf=[128])])
 
     model = PPO(
         "MlpPolicy",
         env,
         gamma=1,
-        batch_size=64,
-        n_steps=512,  # with 12 environments these are 32 trajectories
+        batch_size=1024,
+        n_steps=256,  
         n_epochs=4,
         ent_coef=0.001,
+        learning_rate=0.0003, 
         policy_kwargs=policy_kwargs,
         verbose=1,
         create_eval_env=True,
@@ -98,7 +100,7 @@ if __name__ == "__main__":
     # and save the evaluation to the "logs/" folder
     # model.load('logs/box_world/ppo_split_model_4800000_steps', env=env)
     model.learn(
-        10000000,
+        10e6,
         callback=callbacks,
         tb_log_name="ppo_goal",
         reset_num_timesteps=True,
