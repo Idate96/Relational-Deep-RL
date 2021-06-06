@@ -46,24 +46,24 @@ import heightgrid  # register the environment
 
 
 if __name__ == "__main__":
-    log_dir = "./logs/heightgrid/ppo/digging_5x5"
+    log_dir = "./logs/heightgrid/ppo/digging_8x8"
     os.makedirs(log_dir, exist_ok=True)
-    size = 5
-    num_digging_pts = 1
+    size = 8
+    num_digging_pts = 4
     env_id = "HeightGrid-RandomTargetHeight-v0"
-    env = parallel_worlds(env_id, log_dir=log_dir, flat_obs=True, num_envs=16, size=size, num_digging_pts=num_digging_pts, max_steps=2048)
+    env = parallel_worlds(env_id, log_dir=log_dir, flat_obs=False, num_envs=16, size=size, num_digging_pts=num_digging_pts)
 
-    eval_env = make_env(env_id, log_dir=log_dir, seed=24, flat_obs=True, size=size, num_digging_pts=num_digging_pts)()
+    eval_env = make_env(env_id, log_dir=log_dir, seed=24, flat_obs=False, size=size, num_digging_pts=num_digging_pts)()
     # figure, ax = eval_env.render()
     # plt.plot(figure)
 
-    policy_kwargs = dict(net_arch=[128, dict(pi=[128], vf=[128])])
+    policy_kwargs = dict(net_arch=[256, dict(pi=[256], vf=[256])])
 
     model = PPO(
-        "MlpPolicy",
+        "MultiInputPolicy",
         env,
-        gamma=1,
-        batch_size=1024,
+        gamma=0.997,
+        batch_size=3 * 1024,
         n_steps=2048,  
         n_epochs=4,
         ent_coef=0.001,
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     # with steps 2058 * num_envs
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=200000, save_path=log_dir, name_prefix="ppo_goal_target"
+        save_freq=200000, save_path=log_dir, name_prefix="ppo_dict_goal_target"
     )
 
     # Separate evaluation env
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     # Create the callback list
     # Evaluate the model every 1000 steps on 5 test episodes
     # and save the evaluation to the "logs/" folder
-    model.load('logs/heightgrid/ppo/digging_5x5/ppo_goal_target_9600000_steps', env=env)
+    # model.load('logs/heightgrid/ppo/digging_8x8/ppo_goal_target_9600000_steps', env=env)
     model.learn(
         10e7,
         callback=callbacks,
@@ -123,14 +123,14 @@ if __name__ == "__main__":
     # # Retrieve the environment
     # env = model.get_env()
 
-    # Evaluate the policy
-    mean_reward, std_reward = evaluate_policy(
-        model.policy, eval_env, n_eval_episodes=10, deterministic=True
-    )
-    print(f"mean_reward={mean_reward:.2f} +/- {std_reward}")
+    # # Evaluate the policy
+    # mean_reward, std_reward = evaluate_policy(
+    #     model.policy, eval_env, n_eval_episodes=10, deterministic=True
+    # )
+    # print(f"mean_reward={mean_reward:.2f} +/- {std_reward}")
 
-    obs = eval_env.reset()
-    for i in range(1000):
-        action, _states = model.predict(obs, deterministic=True)
-        obs, rewards, dones, info = eval_env.step(action)
-        env.render("human")
+    # obs = eval_env.reset()
+    # for i in range(1000):
+    #     action, _states = model.predict(obs, deterministic=True)
+    #     obs, rewards, dones, info = eval_env.step(action)
+    #     env.render("human")
