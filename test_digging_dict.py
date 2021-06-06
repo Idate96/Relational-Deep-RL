@@ -36,7 +36,7 @@ from net import RelationalNet
 import torch as th
 import torch.nn as nn
 import matplotlib.pyplot as plt
-from extractors import RelationalNet, DeeperExtractor, SimpleExtractor
+from extractors import RelationalNet, DeeperExtractor, SimpleExtractor, SimpleExtractorDict, CustomCombinedExtractor
 import heightgrid  # register the environment
 
 # checkpoint (model and replay buffer): check
@@ -46,25 +46,30 @@ import heightgrid  # register the environment
 
 
 if __name__ == "__main__":
-    log_dir = "./logs/heightgrid/ppo/digging_8x8"
+    log_dir = "./logs/heightgrid/ppo/digging_8x8/dict"
     os.makedirs(log_dir, exist_ok=True)
     size = 8
     num_digging_pts = 4
     env_id = "HeightGrid-RandomTargetHeight-v0"
-    env = parallel_worlds(env_id, log_dir=log_dir, flat_obs=False, num_envs=16, size=size, num_digging_pts=num_digging_pts)
+    env = parallel_worlds(env_id, log_dir=log_dir, flat_obs=False, num_envs=16, 
+                          size=size, step_cost=-0.01, num_digging_pts=num_digging_pts, max_steps=1024)
 
-    eval_env = make_env(env_id, log_dir=log_dir, seed=24, flat_obs=False, size=size, num_digging_pts=num_digging_pts)()
+    eval_env = make_env(env_id, log_dir=log_dir, seed=24, flat_obs=False, 
+                        size=size, step_cost=-0.01, num_digging_pts=num_digging_pts, max_steps=1024)()
     # figure, ax = eval_env.render()
     # plt.plot(figure)
 
-    policy_kwargs = dict(net_arch=[256, dict(pi=[256], vf=[256])])
+    policy_kwargs = dict(
+        features_extractor_class=CustomCombinedExtractor,
+        net_arch=[256, dict(pi=[256], vf=[256])]
+    )
 
     model = PPO(
-        "MultiInputPolicy",
+        ActorCriticPolicy,
         env,
-        gamma=0.997,
-        batch_size=3 * 1024,
-        n_steps=2048,  
+        gamma=0.999,
+        batch_size=2048 * 2,
+        n_steps=1024,  
         n_epochs=4,
         ent_coef=0.001,
         learning_rate=0.0003, 
@@ -76,7 +81,7 @@ if __name__ == "__main__":
     # with steps 2058 * num_envs
 
     checkpoint_callback = CheckpointCallback(
-        save_freq=200000, save_path=log_dir, name_prefix="ppo_dict_goal_target"
+        save_freq=200000, save_path=log_dir, name_prefix="ppo_dig"
     )
 
     # Separate evaluation env
@@ -100,14 +105,14 @@ if __name__ == "__main__":
     # and save the evaluation to the "logs/" folder
     # model.load('logs/heightgrid/ppo/digging_8x8/ppo_goal_target_9600000_steps', env=env)
     model.learn(
-        10e7,
+        20e7,
         callback=callbacks,
-        tb_log_name="ppo_goal",
-        reset_num_timesteps=False,
+        tb_log_name="ppo_dig",
+        reset_num_timesteps=True,
     )
 
     # save the model
-    model.save(log_dir + "/ppo_goal_model")
+    model.save(log_dir + "/ppo_dig_model")
     # now save the replay buffer too
     # model.save_replay_buffer("sac_replay_buffer")
 

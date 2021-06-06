@@ -1,12 +1,13 @@
 from time import monotonic
+from numpy import vectorize
 from numpy.lib.index_tricks import _fill_diagonal_dispatcher
-from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecTransposeImage
 from stable_baselines3.common.monitor import Monitor
 from gym_boxworld.envs.boxworld_env import BoxworldEnv, RandomBoxworldEnv
 from typing import Callable
 import gym
 from stable_baselines3.common.vec_env.vec_video_recorder import VecVideoRecorder
-from heightgrid.wrappers import FlatObsSimpleWrapper
+from heightgrid.wrappers import FlatObsSimpleWrapper, ImgTransposeWrapper
 
 
 def make_boxworld(
@@ -72,8 +73,11 @@ def make_env(
         env.seed(seed)
         if flat_obs:
             env = FlatObsSimpleWrapper(env)
+        else:
+            env = ImgTransposeWrapper(env)
         if monitor:
             env = Monitor(env, log_dir)
+                
         return env
 
     return init
@@ -91,7 +95,7 @@ def parallel_boxworlds(
 ):
     env = SubprocVecEnv(
         [
-            make_boxworld(
+            VecTransposeImage(make_boxworld(
                 n=n,
                 max_steps=max_steps,
                 goal_length=goal_length,
@@ -102,7 +106,7 @@ def parallel_boxworlds(
                 log_dir=log_dir,
                 random=False,
                 **kwargs
-            )
+            ))
             for i in range(num_envs)
         ]
     )

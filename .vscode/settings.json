@@ -3,7 +3,7 @@
     "/home/lorenzo/catkin_ws/devel/lib/python3/dist-packages",
     "/opt/ros/noetic/lib/python3/dist-packages"
   ],
-  "python.pythonPath": "/home/lorenzo/anaconda3/envs/baseline/bin/python",
+  "python.pythonPath": "/home/lorenzo/anaconda3/bin/python",
   "python.analysis.extraPaths": [
     "/home/lorenzo/catkin_ws/devel/lib/python3/dist-packages",
     "/opt/ros/noetic/lib/python3/dist-packages"

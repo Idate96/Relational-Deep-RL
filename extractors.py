@@ -149,24 +149,24 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
                 extractors[key] = nn.Sequential(
                     nn.Conv2d(3, 16, kernel_size=3, stride=1),
                     nn.ReLU(),
-                    nn.Conv2d(16, 16, kernel_size=3, stride=2),
+                    nn.Conv2d(16, 16, kernel_size=3, stride=1),
                     nn.ReLU(),
+                    nn.Flatten()
                 )
-
-                total_concat_size += self.feature_size(subspace.shape)
+                total_concat_size += self.feature_size(subspace.shape, extractors[key])
                 
             elif key == "vector":
-                # Run through a simple MLP
-                extractors[key] = nn.Linear(subspace.shape[0], 16)
-                total_concat_size += 16
+                # keep it the same 
+                extractors[key] = nn.Identity(subspace.shape[0])
+                total_concat_size += subspace.shape[0]
 
         self.extractors = nn.ModuleDict(extractors)
 
         # Update the features dim manually
         self._features_dim = total_concat_size
 
-    def feature_size(self, shape):
-        return self.features(autograd.Variable(th.zeros(1, shape))).view(1, -1).size(1)
+    def feature_size(self, shape, layer):
+        return layer(autograd.Variable(th.zeros(1, *shape))).view(1, -1).size(1)
 
     def forward(self, observations) -> th.Tensor:
         encoded_tensor_list = []
