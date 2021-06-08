@@ -45,6 +45,8 @@ import heightgrid  # register the environment
 # tensorflow integration: check
 
 
+
+
 if __name__ == "__main__":
     log_dir = "./logs/heightgrid/ppo/digging_5x5"
     os.makedirs(log_dir, exist_ok=True)
@@ -98,7 +100,6 @@ if __name__ == "__main__":
     # Create the callback list
     # Evaluate the model every 1000 steps on 5 test episodes
     # and save the evaluation to the "logs/" folder
-    model.load('logs/heightgrid/ppo/digging_5x5/ppo_goal_target_9600000_steps', env=env)
     model.learn(
         10e7,
         callback=callbacks,

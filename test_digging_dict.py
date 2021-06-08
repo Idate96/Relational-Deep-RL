@@ -42,7 +42,8 @@ import heightgrid  # register the environment
 # checkpoint (model and replay buffer): check
 # logging (personalized): -
 # on custom environment
-# tensorflow integration: check
+
+
 
 
 if __name__ == "__main__":
@@ -64,20 +65,7 @@ if __name__ == "__main__":
         net_arch=[256, dict(pi=[256], vf=[256])]
     )
 
-    model = PPO(
-        ActorCriticPolicy,
-        env,
-        gamma=0.999,
-        batch_size=2048 * 2,
-        n_steps=1024,  
-        n_epochs=4,
-        ent_coef=0.001,
-        learning_rate=0.0003, 
-        policy_kwargs=policy_kwargs,
-        verbose=1,
-        create_eval_env=True,
-        tensorboard_log=log_dir,
-    )
+
     # with steps 2058 * num_envs
 
     checkpoint_callback = CheckpointCallback(
@@ -99,17 +87,44 @@ if __name__ == "__main__":
     # not saving
     video_recorder = VideoRecorderCallback(eval_env, render_freq=20000)
     callbacks = CallbackList([eval_callback, checkpoint_callback])
-
-    # Create the callback list
-    # Evaluate the model every 1000 steps on 5 test episodes
-    # and save the evaluation to the "logs/" folder
-    # model.load('logs/heightgrid/ppo/digging_8x8/ppo_goal_target_9600000_steps', env=env)
-    model.learn(
+    continue_training = 1
+    
+    if continue_training:
+      model_log_dir = 'logs/heightgrid/ppo/digging_8x8/ppo_goal_target_9600000_steps'
+      env.reset()
+      model = PPO.load(model_log_dir, env=env)
+      
+      model.learn(
         20e7,
         callback=callbacks,
         tb_log_name="ppo_dig",
-        reset_num_timesteps=True,
+        reset_num_timesteps=False,
     )
+
+    
+    else:
+
+      model = PPO(
+          ActorCriticPolicy,
+          env,
+          gamma=0.999,
+          batch_size=2048,
+          n_steps=1024,  
+          n_epochs=4,
+          ent_coef=0.001,
+          learning_rate=0.001, 
+          policy_kwargs=policy_kwargs,
+          verbose=1,
+          create_eval_env=True,
+          tensorboard_log=log_dir,
+      )
+    # model.load('logs/heightgrid/ppo/digging_8x8/ppo_goal_target_9600000_steps', env=env)
+      model.learn(
+          20e7,
+          callback=callbacks,
+          tb_log_name="ppo_dig",
+          reset_num_timesteps=True,
+      )
 
     # save the model
     model.save(log_dir + "/ppo_dig_model")

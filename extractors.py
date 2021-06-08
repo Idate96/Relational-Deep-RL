@@ -176,3 +176,47 @@ class CustomCombinedExtractor(BaseFeaturesExtractor):
             encoded_tensor_list.append(extractor(observations[key]))
         # Return a (B, self._features_dim) PyTorch tensor, where B is batch dimension.
         return th.cat(encoded_tensor_list, dim=1)
+
+class CustomCombinedShallowExtractor(BaseFeaturesExtractor):
+    def __init__(self, observation_space: gym.spaces.Dict):
+        # We do not know features-dim here before going over all the items,
+        # so put something dummy for now. PyTorch requires calling
+        # nn.Module.__init__ before adding modules
+        super(CustomCombinedExtractor, self).__init__(observation_space, features_dim=1)
+
+        extractors = {}
+
+        total_concat_size = 0
+        # We need to know size of the output of this extractor,
+        # so go over all the spaces and compute output feature sizes
+        for key, subspace in observation_space.spaces.items():
+            if key == "image":
+                extractors[key] = nn.Sequential(
+                    nn.Conv2d(3, 16, kernel_size=3, stride=1),
+                    nn.ReLU(),
+                    nn.Flatten()
+                )
+                total_concat_size += self.feature_size(subspace.shape, extractors[key])
+                
+            elif key == "vector":
+                # keep it the same 
+                extractors[key] = nn.Identity(subspace.shape[0])
+                total_concat_size += subspace.shape[0]
+
+        self.extractors = nn.ModuleDict(extractors)
+
+        # Update the features dim manually
+        self._features_dim = total_concat_size
+
+    def feature_size(self, shape, layer):
+        return layer(autograd.Variable(th.zeros(1, *shape))).view(1, -1).size(1)
+
+    def forward(self, observations) -> th.Tensor:
+        encoded_tensor_list = []
+
+        # self.extractors contain nn.Modules that do all the processing.
+        for key, extractor in self.extractors.items():
+            encoded_tensor_list.append(extractor(observations[key]))
+        # Return a (B, self._features_dim) PyTorch tensor, where B is batch dimension.
+        return th.cat(encoded_tensor_list, dim=1)
+
