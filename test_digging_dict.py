@@ -91,6 +91,7 @@ if __name__ == "__main__":
     
     if continue_training:
       model_log_dir = 'logs/heightgrid/ppo/digging_8x8/dict/ppo_dig_308815872_steps'
+
       env.reset()
       model = PPO.load(model_log_dir, env=env)
       
