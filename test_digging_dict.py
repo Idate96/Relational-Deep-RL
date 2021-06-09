@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     policy_kwargs = dict(
         features_extractor_class=CustomCombinedExtractor,
-        net_arch=[256, dict(pi=[256], vf=[256])]
+        net_arch=[256, 256, 256, dict(pi=[256], vf=[256])]
     )
 
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     # not saving
     video_recorder = VideoRecorderCallback(eval_env, render_freq=20000)
     callbacks = CallbackList([eval_callback, checkpoint_callback])
-    continue_training = 1
+    continue_training = 0
     
     if continue_training:
       model_log_dir = 'logs/heightgrid/ppo/digging_8x8/dict/ppo_dig_308815872_steps'
@@ -108,12 +108,12 @@ if __name__ == "__main__":
       model = PPO(
           ActorCriticPolicy,
           env,
-          gamma=0.999,
+          gamma=0.997,
           batch_size=2048,
           n_steps=1024,  
           n_epochs=4,
           ent_coef=0.001,
-          learning_rate=0.001, 
+          learning_rate=0.0003, 
           policy_kwargs=policy_kwargs,
           verbose=1,
           create_eval_env=True,

@@ -22,18 +22,22 @@ if __name__ == "__main__":
                           size=size, step_cost=-0.01, num_digging_pts=num_digging_pts, max_steps=1024)
     env.reset()
     video_length = 1024
-    model_path = "logs/heightgrid/ppo/digging_8x8/dict/ppo_dig_388815872_steps"
+    model_path = "logs/heightgrid/ppo/digging_8x8/dict/ppo_dig_497615872_steps"
     model = PPO.load(model_path, env=env)
-    images = []
 
-    obs = env.reset()
-    img = env.render(mode="rgb_array")
-    for i in range(video_length):
-        images.append(img)
-        action, state_ = model.predict(obs, deterministic=True)
-        obs, rewards, done, info = env.step(action)
-        img = env.render(mode="rgb_array")
+    num_gifs = 40
+    for gif_id in range(num_gifs):
+      images = []
+      obs = env.reset()
+      img = env.render(mode="rgb_array")
+      for i in range(video_length):
+          images.append(img)
+          action, state_ = model.predict(obs, deterministic=True)
+          obs, rewards, done, info = env.step(action)
+          img = env.render(mode="rgb_array")
+          if done:
+            break
 
-    imageio.mimsave(
-        log_dir + "/videos/" + env_id + ".gif", [np.array(img) for i, img in enumerate(images)]
-    )
+      imageio.mimsave(
+          log_dir + "/videos/" + env_id + "steps" + "_" + str(i) + "_" + str(gif_id) + ".gif", [np.array(img) for i, img in enumerate(images)]
+      )
