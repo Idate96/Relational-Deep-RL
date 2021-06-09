@@ -9,7 +9,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 if __name__ == "__main__":
   log_dir = "logs/atari/pong"
   env_id = "PongNoFrameskip-v4"
-  num_envs = 8
+  num_envs = 2
   env = make_atari_env(env_id, n_envs=num_envs, seed=0, monitor_dir=log_dir)
   env = VecFrameStack(env, n_stack=4)
 
