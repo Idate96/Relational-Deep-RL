@@ -53,7 +53,7 @@ from masked_policy import MaskedActorCriticPolicy
 
 
 if __name__ == "__main__":
-    log_dir = "./logs/heightgrid/ppo/digging_16x16/dict_mask"
+    log_dir = "cluster/home/lterenzi/git/Relational-Deep-RL/logs/heightgrid/ppo/digging_16x16/dict_mask"
     os.makedirs(log_dir, exist_ok=True)
     size = 16
     num_digging_pts = 8
@@ -69,7 +69,6 @@ if __name__ == "__main__":
         mask=True,
         num_digging_pts=num_digging_pts,
         max_steps=1024,
-        collision_cost=-0.01
     )
 
     eval_env = make_env(
