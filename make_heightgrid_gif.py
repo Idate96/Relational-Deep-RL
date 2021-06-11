@@ -22,7 +22,7 @@ if __name__ == "__main__":
                           size=size, step_cost=-0.001, mask=True, num_digging_pts=num_digging_pts, max_steps=1024)
     env.reset()
     video_length = 2048
-    model_path = "logs/heightgrid/ppo/digging_16x16/dict_mask/mask_pts2_3200000_steps"
+    model_path = "logs/heightgrid/ppo/digging_16x16/dict_mask/mask_pts2_115200000_steps"
     model = PPO.load(model_path, env=env)
 
     num_gifs = 5
