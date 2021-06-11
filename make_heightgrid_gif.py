@@ -13,19 +13,19 @@ import numpy as np
 from helpers import make_env, parallel_worlds
 
 if __name__ == "__main__":
-    log_dir = "logs/heightgrid/ppo/digging_8x8/dict"
+    log_dir = "logs/heightgrid/ppo/digging_16x16/dict_mask"
 
-    size = 8
-    num_digging_pts = 4
+    size = 16
+    num_digging_pts = 2
     env_id = "HeightGrid-RandomTargetHeight-v0"
     env = parallel_worlds(env_id, log_dir=log_dir, flat_obs=False, num_envs=1, 
-                          size=size, step_cost=-0.01, num_digging_pts=num_digging_pts, max_steps=1024)
+                          size=size, step_cost=-0.001, mask=True, num_digging_pts=num_digging_pts, max_steps=1024)
     env.reset()
-    video_length = 1024
-    model_path = "logs/heightgrid/ppo/digging_8x8/dict/ppo_dig_497615872_steps"
+    video_length = 2048
+    model_path = "logs/heightgrid/ppo/digging_16x16/dict_mask/mask_pts2_3200000_steps"
     model = PPO.load(model_path, env=env)
 
-    num_gifs = 40
+    num_gifs = 5
     for gif_id in range(num_gifs):
       images = []
       obs = env.reset()

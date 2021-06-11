@@ -53,16 +53,16 @@ from masked_policy import MaskedActorCriticPolicy
 
 
 if __name__ == "__main__":
-    log_dir = "./logs/heightgrid/ppo/digging_8x8/dict_mask"
+    log_dir = "./logs/heightgrid/ppo/digging_16x16/dict_mask"
     os.makedirs(log_dir, exist_ok=True)
     size = 16
-    num_digging_pts = 8
+    num_digging_pts = 2
     env_id = "HeightGrid-RandomTargetHeight-v0"
     env = parallel_worlds(
         env_id,
         log_dir=log_dir,
         flat_obs=False,
-        num_envs=1,
+        num_envs=64,
         size=size,
         step_cost=-0.001,
         mask=True,
@@ -76,23 +76,23 @@ if __name__ == "__main__":
         seed=24,
         flat_obs=False,
         size=size,
-        step_cost=-0.01,
+        step_cost=-0.001,
         mask=True,
         num_digging_pts=num_digging_pts,
-        max_steps=1024,
+        max_steps=2*1024,
     )()
     # figure, ax = eval_env.render()
     # plt.plot(figure)
     print("eval obs ", eval_env.observation_space)
     policy_kwargs = dict(
         features_extractor_class=CustomCombinedExtractor,
-        net_arch=[256, dict(pi=[256], vf=[256])],
+        net_arch=[256, 256, 256, dict(pi=[256], vf=[256])],
     )
 
     # with steps 2058 * num_envs
-
+    name_prefix = "mask_pts" + str(num_digging_pts) 
     checkpoint_callback = CheckpointCallback(
-        save_freq=200000, save_path=log_dir, name_prefix="ppo_dig_mask"
+        save_freq=200000, save_path=log_dir, name_prefix=name_prefix
     )
 
     # Separate evaluation env
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     continue_training = 0
 
     if continue_training:
-        model_log_dir = "logs/heightgrid/ppo/digging_8x8/ppo_goal_target_9600000_steps"
+        model_log_dir = "logs/heightgrid/ppo/digging_8x8/dict_mask/ppo_dig_mask_12800000_steps"
         env.reset()
         model = PPO.load(model_log_dir, env=env)
 
@@ -129,12 +129,12 @@ if __name__ == "__main__":
         model = PPO(
             MaskedActorCriticPolicy,
             env,
-            gamma=0.999,
-            batch_size=2048,
-            n_steps=1024,
+            gamma=0.997,
+            batch_size=2*2048,
+            n_steps=2*1024,
             n_epochs=4,
             ent_coef=0.001,
-            learning_rate=0.001,
+            learning_rate=0.0003,
             policy_kwargs=policy_kwargs,
             verbose=1,
             create_eval_env=True,
