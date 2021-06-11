@@ -57,6 +57,7 @@ if __name__ == "__main__":
     os.makedirs(log_dir, exist_ok=True)
     size = 16
     num_digging_pts = 2
+
     env_id = "HeightGrid-RandomTargetHeight-v0"
     env = parallel_worlds(
         env_id,
@@ -64,10 +65,11 @@ if __name__ == "__main__":
         flat_obs=False,
         num_envs=64,
         size=size,
-        step_cost=-0.001,
+        step_cost=-0.005,
         mask=True,
         num_digging_pts=num_digging_pts,
-        max_steps=2*1024,
+        max_steps=1024,
+        collision_cost=-0.01
     )
 
     eval_env = make_env(
@@ -80,6 +82,7 @@ if __name__ == "__main__":
         mask=True,
         num_digging_pts=num_digging_pts,
         max_steps=2*1024,
+
     )()
     # figure, ax = eval_env.render()
     # plt.plot(figure)
@@ -87,6 +90,7 @@ if __name__ == "__main__":
     policy_kwargs = dict(
         features_extractor_class=CustomCombinedExtractor,
         net_arch=[256, 256, 256, dict(pi=[256], vf=[256])],
+
     )
 
     # with steps 2058 * num_envs
